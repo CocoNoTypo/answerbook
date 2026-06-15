@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>古籍秘典．答案之書</title>
+    <!-- 引入古典歐風襯線字型與東方粗襯線字型 -->
+    <link href="https://googleapis.com" rel="stylesheet">
+    <style>
+        body {
+            margin: 0; padding: 0; background: #ece0d1;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            height: 100vh; font-family: 'Noto Serif TC', 'Georgia', serif; user-select: none; overflow: hidden;
+        }
+        .hint-text {
+            color: #3e2723; font-family: 'Noto Serif TC', serif; font-weight: 900; font-size: 1.1rem;
+            margin-bottom: 35px; letter-spacing: 4px; animation: pulse 2.5s infinite; text-align: center; height: 24px;
+        }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        .scene { width: 680px; height: 460px; perspective: 2200px; }
+        .book-container { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
+        .book-container.closed { width: 345px; margin: 0 auto; box-shadow: 25px 35px 65px rgba(0,0,0,0.65), inset -15px 0 30px rgba(0,0,0,0.5); border-radius: 4px 16px 16px 4px; }
+        .book-cover-state {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 60% 50%, #4a2f1d 0%, #261309 100%); color: #ebd18a;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            border-radius: 4px 16px 16px 4px; z-index: 20; box-sizing: border-box; padding: 35px;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.85); border: 1px solid #1a0d08;
+        }
+        .book-cover-state::before {
+            content: ''; position: absolute; left: 0; top: 0; width: 24px; height: 100%;
+            background: linear-gradient(to right, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 70%, rgba(255,255,255,0.08) 90%, rgba(0,0,0,0.4) 100%); border-radius: 4px 0 0 4px;
+        }
+        /* 移除笨拙圖標，改用純 CSS 優雅邊框與直角內凹花邊切角 */
+        .baroque-border {
+            position: absolute; top: 16px; bottom: 16px; left: 36px; right: 18px;
+            border: 2px solid #ebd18a; box-shadow: inset 0 0 0 4px rgba(235,209,138,0.15); pointer-events: none; opacity: 0.85;
+        }
+        .baroque-border::before {
+            content: ''; position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; border: 1px dashed rgba(235,209,138,0.4);
+        }
+        .cover-center-circle {
+            width: 190px; height: 190px; border: 3px double #ebd18a; border-radius: 50%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.6); background: rgba(0, 0, 0, 0.25); padding: 20px; box-sizing: border-box; margin-bottom: 5px; z-index: 2;
+        }
+        /* 封面字體：精準幾何置中修正版 */
+        .cover-title {
+            font-family: 'Noto Serif TC', serif;
+            font-weight: 900;
+            font-size: 1.6rem;       /* 微調大小，確保單行完美鎖在圓圈內 */
+            letter-spacing: 10px;    /* 古典優雅字距 */
+            text-indent: 10px;       /* 核心：精準往右推回 10px，達到幾何絕對置中 */
+            text-shadow: 2px 3px 6px rgba(0,0,0,0.9);
+            color: #fff0c2;
+            text-align: center;
+            line-height: 1.2;
+            width: 100%;
+            white-space: nowrap;     /* 強制不換行 */
+        }
+        .cover-subtitle { font-family: 'Cinzel', serif; font-weight: 900; font-size: 0.75rem; letter-spacing: 4px; margin-top: 12px; border-top: 1px solid rgba(235,209,138,0.5); padding-top: 8px; text-shadow: 1px 2px 3px rgba(0,0,0,0.8); color: #ebd18a; text-indent: 4px; }
+        .book-container.opened { width: 680px; background: #21110a; padding: 12px; border-radius: 4px; box-shadow: 0 35px 70px rgba(0,0,0,0.55); box-sizing: border-box; }
+        .book-pages { width: 100%; height: 100%; background: linear-gradient(135deg, #fffdf4 0%, #f6ebd0 40%, #eddca4 80%, #dfcc91 100%); border-radius: 2px; display: flex; position: relative; box-shadow: inset 0 0 60px rgba(62, 39, 15, 0.35); }
+        .book-pages::after { content: ''; position: absolute; left: 50%; top: 0; width: 12px; height: 100%; background: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,0.35), rgba(0,0,0,0.65), rgba(0,0,0,0.35), rgba(0,0,0,0)); transform: translateX(-50%); }
+        /* 印刷基準排版，徹底消除飄浮兒戲感 */
+        .page { flex: 1; padding: 55px 45px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; box-sizing: border-box; position: relative; }
+        .page-left { border-right: 1px solid rgba(62, 39, 15, 0.2); }
+        .page-deco { border: 1px solid #d3c29d; position: absolute; top: 22px; bottom: 22px; left: 22px; right: 22px; pointer-events: none; }
+        .page-deco::before { content: ''; border: 1px solid #d3c29d; position: absolute; top: 4px; bottom: 4px; left: 4px; right: 4px; }
+        .page-title { font-family: 'Cinzel', serif; font-weight: 900; font-size: 1.05rem; color: #614631; margin-bottom: 0px; letter-spacing: 5px; height: 30px; }
+        /* 核心答案容器：改回完全置中的黃金比例 */
+        .answer-container {
+            width: 90%;
+            height: 210px;       /* 保持與英文對齊高度一致 */
+            margin-top: 40px;    
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* 垂直置中 */
+            align-items: center;     /* 水平置中 */
+        }
+
+        /* 右頁中文：徹底放棄分散對齊，改用絕對安全的完全置中，絕不歪斜 */
+        #answer {
+            font-family: 'Xingkai TC', 'Kaiti TC', 'Noto Serif TC', '華康行楷體', '標楷體', serif;
+            font-weight: 800;
+            font-size: 1.85rem;
+            letter-spacing: 4px;     /* 微調字距，讓短句排列更自然 */
+            text-indent: 4px;        /* 抵消字距偏心 */
+            color: #1e120b;
+            line-height: 1.6;
+            width: 100%;             /* 放開寬度限制，讓瀏覽器自然排版 */
+            text-align: center;      /* 【關鍵】：文字完全水平置中 */
+            text-align-last: center; /* 確保所有行都完全置中 */
+        }
+        #left-content { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.35rem; color: #44342a; line-height: 1.6; max-width: 220px; text-align: center; }
+        .answer-container::after { content: '❦'; color: #8c2d19; font-size: 0.95rem; margin-top: 25px; display: block; opacity: 0.75; }
+        .page-number { position: absolute; bottom: 28px; font-family: 'Cinzel', serif; font-size: 0.8rem; color: #8c715b; letter-spacing: 3px; }
+        .flipping .answer-text { animation: blurText 0.08s infinite alternate; }
+        @keyframes blurText { 0% { filter: blur(2px); opacity: 0.35; } 100% { filter: blur(9px); opacity: 0.03; } }
+    </style>
+</head>
+<body>
+    <!-- [下段請接續黏貼第 2 段的 HTML 書本主體] -->
+    <div class="hint-text" id="hint">閉上眼默想問題，【長按書本】以翻閱解答...</div>
+
+    <div class="scene">
+        <div class="book-container closed" id="book">
+            
+            <!-- 奢華古典封面（CSS 細緻花框與立體中軸） -->
+            <div class="book-cover-state" id="cover">
+                <div class="baroque-border"></div>
+                <div class="cover-center-circle">
+                    <div class="cover-title">答案之書</div>
+                    <div class="cover-subtitle">THE BOOK</div>
+                </div>
+            </div>
+
+            <!-- 展開後的羊皮紙雙內頁（印刷對齊版） -->
+            <div class="book-pages" id="inner-pages" style="display: none;">
+                <div class="page page-left">
+                    <div class="page-deco"></div>
+                    <div class="page-title">VERITAS</div>
+                    <div class="answer-container">
+                        <div class="answer-text" id="left-content">Translation</div>
+                    </div>
+                    <div class="page-number">- IX -</div>
+                </div>
+                <div class="page page-right">
+                    <div class="page-deco"></div>
+                    <div class="page-title">RESPONSUM</div>
+                    <div class="answer-container">
+                        <div class="answer-text" id="answer">啟示</div>
+                    </div>
+                    <div class="page-number">- X -</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // 150 句原版中英對照經典句庫（第 1 ~ 50 句）
+        const answersDatabase = [
+            { ch: "毫無疑問。", en: "Without a doubt." },
+            { ch: "就是現在。", en: "Now is the time." },
+            { ch: "大膽地跨出第一步。", en: "Take the first step boldly." },
+            { ch: "這完全取決於你的行動。", en: "It completely depends on your actions." },
+            { ch: "是的，這很值得嘗試。", en: "Yes, it is well worth a try." },
+            { ch: "現在正是最佳時機。", en: "Now is the absolute best time." },
+            { ch: "盡你所能去爭取。", en: "Do everything you can to fight for it." },
+            { ch: "結果將會非常令人滿意。", en: "The result will be highly satisfying." },
+            { ch: "這是一條充滿希望的道路。", en: "This is a path filled with hope." },
+            { ch: "這是一個極佳的機會。", en: "This is an excellent opportunity." },
+            { ch: "完全可以信任這個決策。", en: "You can fully trust this decision." },
+            { ch: "你的直覺是正確的。", en: "Your intuition is absolutely correct." },
+            { ch: "大膽去實踐你的想法。", en: "Put your ideas into practice boldly." },
+            { ch: "這件事會帶來好運。", en: "This matter will bring you good fortune." },
+            { ch: "主動出擊會帶來轉機。", en: "Taking the initiative will bring a turning point." },
+            { ch: "答案是肯定的。", en: "The answer is definitely yes." },
+            { ch: "這正是你所需要的。", en: "This is exactly what you need." },
+            { ch: "這會是一個美好的開始。", en: "This will be a wonderful beginning." },
+            { ch: "堅定地走下去吧。", en: "Walk down this path with firm steps." },
+            { ch: "一切都在往好的方向發展。", en: "Everything is moving in a good direction." },
+            { ch: "你的努力即將得到回報。", en: "Your hard work is about to pay off." },
+            { ch: "答案就在你的心中。", en: "The answer lies within your heart." },
+            { ch: "這會是一個明智的抉擇。", en: "This will prove to be a wise choice." },
+            { ch: "勇敢地打破常規。", en: "Break the rules with courage." },
+            { ch: "相信你自己的力量。", en: "Have faith in your own inner strength." },
+            { ch: "不，現在還不是時候。", en: "No, now is not the time yet." },
+            { ch: "這可能不是一個好主意。", en: "This might not be a very good idea." },
+            { ch: "重新考慮你的初衷。", en: "Reconsider your original intentions." },
+            { ch: "答案是否定的。", en: "The answer is a definite no." },
+            { ch: "這件事需要更多的耐心等待。", en: "This matter requires more patient waiting." },
+            { ch: "或許你應該選擇放棄。", en: "Perhaps you should choose to let it go." },
+            { ch: "換一個目標會更好。", en: "It would be better to change your goal." },
+            { ch: "這會讓你付出太高的代價。", en: "This will cost you far too high a price." },
+            { ch: "不要盲目地做出決定。", en: "Do not make a decision blindly." },
+            { ch: "暫時停下你的腳步。", en: "Pause your footsteps for a brief moment." },
+            { ch: "這條路可能會讓你失望。", en: "This path might lead to disappointment." },
+            { ch: "現在前進會遇到阻礙。", en: "Moving forward now will meet obstacles." },
+            { ch: "把這件事先放在一邊吧。", en: "Set this matter aside for the time being." },
+            { ch: "這不值得你如此焦慮。", en: "This is truly not worth your anxiety." },
+            { ch: "拒絕是更好的選擇。", en: "Saying no is the much better choice." },
+            { ch: "事情可能不如你想像的單純。", en: "Things may not be as simple as you think." },
+            { ch: "這是一個微險的信號。", en: "This is a highly dangerous signal." },
+            { ch: "不要試圖去強求結果。", en: "Do not try to force a specific outcome." },
+            { ch: "現在不是意氣用事的時候。", en: "Now is not the time to act on impulse." },
+            { ch: "這件事並沒有實質的意義。", en: "This matter carries no real significance." },
+            { ch: "避開這個不必要的麻煩。", en: "Steer clear of this unnecessary trouble." },
+            { ch: "這只是一個短暫的錯覺。", en: "This is merely a fleeting illusion." },
+            { ch: "你的方向需要重新調整。", en: "Your direction needs to be readjusted." },
+            { ch: "這件事會讓你分心。", en: "This matter will only distract you." },
+            { ch: "放手會讓你更加輕鬆。", en: "Letting go will bring you greater peace." },
+            // [下段請接續黏貼第 3 段的第 51 ~ 100 句庫]
+            { ch: "順其自然，答案自會浮現。", en: "Let it be, the answer will emerge itself." },
+            { ch: "保持沉默，時間會證明一切。", en: "Stay silent, time will prove everything." },
+            { ch: "這需要看你如何去定義它。", en: "It depends on how you choose to define it." },
+            { ch: "有些事，不知道反而更美好。", en: "Some things are better left unknown." },
+            { ch: "交給命運來做決定吧。", en: "Leave the final decision to destiny." },
+            { ch: "一切都還存在變數。", en: "Everything remains subject to change." },
+            { ch: "這取決於你身邊的人。", en: "This depends on the people around you." },
+            { ch: "讓子彈再飛一會兒。", en: "Give it a little more time to develop." },
+            { ch: "答案就藏在細節裡。", en: "The answer is safely hidden in the details." },
+            { ch: "這只是人生的一個小插曲。", en: "This is merely a brief interlude in life." },
+            { ch: "時間會沖淡現在的焦慮。", en: "Time will surely wash away your anxiety." },
+            { ch: "這是一把雙面刃。", en: "This is a double-edged sword." },
+            { ch: "沒有絕對的對與錯。", en: "There is no absolute right or wrong." },
+            { ch: "這需要折衷與妥協。", en: "This demands compromise and concession." },
+            { ch: "保持中立是最好的姿態。", en: "Remaining neutral is the best posture." },
+            { ch: "你心裡其實早就有了答案。", en: "Deep down, you already know the answer." },
+            { ch: "這件事沒有你想像的那麼嚴重。", en: "It is not as serious as you imagine." },
+            { ch: "一切都是最好的安排。", en: "Everything happens for the best arrangement." },
+            { ch: "命運會帶領你走到該去的地方。", en: "Destiny will lead you to where you belong." },
+            { ch: "保持平常心即可。", en: "Simply maintain a calm and steady mind." },
+            { ch: "這只是無數選擇中的一個。", en: "This is just one of countless choices." },
+            { ch: "這件事很快就會過去。", en: "This matter will pass away very soon." },
+            { ch: "不要急著下定論。", en: "Do not rush to a final conclusion." },
+            { ch: "局勢還不夠明朗。", en: "The situation is not yet clear enough." },
+            { ch: "過一段時間再看吧。", en: "Look at it again after some time." },
+            { ch: "傾聽你內心最初的直覺。", en: "Listen closely to your first intuition." },
+            { ch: "你需要先放下心中的執念。", en: "You must first let go of your obsession." },
+            { ch: "先找回你內心的平靜。", en: "Find your inner peace before anything else." },
+            { ch: "試著去原諒與釋懷。", en: "Try your best to forgive and let go." },
+            { ch: "這是一次認識自己的機會。", en: "This is a grand chance to know yourself." },
+            { ch: "不要迷失在別人的期待裡。", en: "Do not lose yourself in others' expectations." },
+            { ch: "你需要給自己一些空間。", en: "You need to grant yourself some space." },
+            { ch: "學會與孤獨和平共處。", en: "Learn to coexist peacefully with solitude." },
+            { ch: "誠實地面對你自己的恐懼。", en: "Face your own fears with total honesty." },
+            { ch: "你的心會告訴你方向。", en: "Your heart will naturally guide your way." },
+            { ch: "不要對自己太過苛刻。", en: "Do not be overly harsh on yourself." },
+            { ch: "找回你最初的熱情。", en: "Rediscover the original passion you had." },
+            { ch: "這是一次心靈的洗禮。", en: "This will be a true baptism of the soul." },
+            { ch: "專注於當下的每一步。", en: "Focus entirely on each step in the present." },
+            { ch: "放慢你的生活節奏。", en: "Slow down the frantic rhythm of your life." },
+            { ch: "擁抱生活中的不完美。", en: "Embrace the beautiful imperfections of life." },
+            { ch: "你需要更多的自信。", en: "You are in need of much more self-confidence." },
+            { ch: "不要讓過去束縛了未來。", en: "Do not allow the past to bind your future." },
+            { ch: "這會讓你變得更加堅強。", en: "This experience will make you much stronger." },
+            { ch: "保持善良，但要帶點鋒芒。", en: "Stay kind, but ensure you keep your edge." },
+            { ch: "尋求身邊信任朋友的建議。", en: "Seek advice from a friend you fully trust." },
+            { ch: "這需要團隊的通力合作。", en: "This requires full teamwork and cooperation." },
+            { ch: "多聽聽專業人士的意見。", en: "Listen more to the opinions of experts." },
+            { ch: "不要試圖一人承擔所有。", en: "Do not try to bear everything all alone." },
+            { ch: "與他人分享你的困擾。", en: "Share your troubles with someone else." },
+            // [下段請接續黏貼第 4 段的最後剩餘句庫與核心互動邏輯]
+            { ch: "主動去尋求幫助吧。", en: "Take the initiative to ask for help." },
+            { ch: "這個問題需要溝通來解決。", en: "This issue must be resolved by communication." },
+            { ch: "多站在對方的角度思考。", en: "Think more from the other side's perspective." },
+            { ch: "一位貴人即將出現。", en: "A helpful mentor is about to appear." },
+            { ch: "遠離那些消耗你能量的人。", en: "Stay away from those who drain your energy." },
+            { ch: "換個角度看，危機即是轉機。", en: "From another angle, crisis is opportunity." },
+            { ch: "跳出原有的思維框架。", en: "Step entirely out of your comfort zone." },
+            { ch: "打破常規，大膽創新。", en: "Break conventions and innovate boldly." },
+            { ch: "這需要充足的物質準備。", en: "This requires sufficient material preparation." },
+            { ch: "不要忽視任何微小的細節。", en: "Do not overlook any tiny detail." },
+            { ch: "做好最壞的心理準備。", en: "Prepare yourself for the worst outcome." },
+            { ch: "隨緣而安，莫要強求。", en: "Let it be and do not force the situation." },
+            { ch: "珍惜眼前的平凡生活。", en: "Cherish the ordinary life right in front of you." },
+            { ch: "再堅持一下，曙光就在前方。", en: "Hold on a bit longer, dawn is ahead." },
+            { ch: "答案不重要，過程才是收穫。", en: "The answer matters less than the journey." },
+            { ch: "接受命運拋給你的變化。", en: "Accept the unexpected changes destiny throws at you." },
+            { ch: "另闢蹊徑會看到不同的風景。", en: "Taking an alternative path will reveal different scenery." },
+            { ch: "不要在一棵樹上吊死。", en: "Do not put all your eggs in one basket." },
+            { ch: "生活需要一點儀式感。", en: "Life requires a certain sense of ritual." },
+            { ch: "確保你擁有足夠的籌碼。", en: "Make sure you hold enough chips in your hand." },
+            { ch: "保持清醒，別掉入陷阱。", en: "Stay clear-headed and do not fall into traps." },
+            { ch: "貪心會讓你失去更多。", en: "Greed will cause you to lose even more." },
+            { ch: "有些規則是不能打破的。", en: "There are certain rules that must never be broken." },
+            { ch: "平平淡淡才是真。", en: "True happiness lies in simple living." },
+            { ch: "今天也是精采的一天。", en: "Today is going to be another wonderful day." },
+            { ch: "得之我幸，失之我命。", en: "What is meant to be will be; what is not will pass." },
+            { ch: "笑一笑，沒什麼大不了。", en: "Just smile, it is truly no big deal." },
+            { ch: "活出你自己的精彩人生。", en: "Live your own brilliant life." },
+            { ch: "不要羨慕別人的生活。", en: "Never envy the lives of others." },
+            { ch: "知足常樂，便是幸福。", en: "Contentment brings constant happiness." },
+            { ch: "有些遺憾，也是一種美。", en: "Some regrets possess their own unique beauty." },
+            { ch: "用行動打破所有的質疑。", en: "Let your actions shatter all doubts." },
+            { ch: "生活不會虧待努力的人。", en: "Life never cheats those who work hard." },
+            { ch: "明天又是全新的一天。", en: "Tomorrow is a completely new day." },
+            { ch: "命運之輪已經悄然開啟。", en: "The wheel of fortune has already begun to turn." },
+            { ch: "一切的終點，都是新的起點。", en: "Every ending marks a fresh new beginning." },
+            { ch: "活在當下，就是最好的答案。", en: "Living in the moment is the greatest answer." },
+            { ch: "不要試圖去掌控所有事情。", en: "Do not attempt to control everything." },
+            { ch: "看開點，一切都是身外之物。", en: "Lighten up, everything else is secondary." },
+            { ch: "生命會自己找到出路。", en: "Life will always find its own way out." },
+            { ch: "帶著這個疑問，勇敢地活下去吧。", en: "Keep this question and live your life courageously." },
+            { ch: "這需要你展示出真正的實力。", en: "This requires you to display your true capability." },
+            { ch: "多聽聽長輩的意見。", en: "Listen more to the wisdom of elders." },
+            { ch: "一個溫暖的問候會改變局勢。", en: "A warm greeting will alter the entire situation." },
+            { ch: "這不符合你的長遠利益。", en: "This does not align with your long-term benefits." },
+            { ch: "做好防範，未雨綢繆。", en: "Take precautions and save for a rainy day." },
+            { ch: "不要害怕走和別人不同的路。", en: "Never fear taking a path less traveled by others." },
+            { ch: "現在不是意氣用事的時候。", en: "Now is not the time to act on emotions." },
+            { ch: "這會讓你付出太高的代價。", en: "This will cost you an incredibly high price." },
+            { ch: "放手會讓你更加輕鬆。", en: "Letting go will lift a heavy weight off your shoulders." }
+        ];
+
+        const book = document.getElementById('book');
+        const cover = document.getElementById('cover');
+        const innerPages = document.getElementById('inner-pages');
+        const answerEl = document.getElementById('answer');
+        const leftContentEl = document.getElementById('left-content');
+        const hintEl = document.getElementById('hint');
+
+        let flipInterval = null;
+        let isFlipping = false;
+        let currentStatus = 'closed'; 
+        let pressTimer = null;
+
+        function startPress(e) {
+            e.preventDefault();
+            if (currentStatus === 'answered') {
+                resetToClosed();
+                return;
+            }
+            if (currentStatus !== 'closed') return;
+
+            pressTimer = setTimeout(() => {
+                isFlipping = true;
+                currentStatus = 'flipping';
+                book.classList.remove('closed');
+                book.classList.add('opened');
+                cover.style.display = 'none';
+                innerPages.style.display = 'flex';
+                book.classList.add('flipping');
+                hintEl.innerText = "正在凝聚能量... 放開滑鼠以獲得啟示";
+
+                flipInterval = setInterval(() => {
+                    const randomPair = answersDatabase[Math.floor(Math.random() * answersDatabase.length)];
+                    answerEl.innerText = randomPair.ch.slice(0, 4) + "...";
+                    leftContentEl.innerText = randomPair.en.slice(0, 10) + "...";
+                }, 65);
+            }, 150); 
+        }
+
+        function endPress(e) {
+            clearTimeout(pressTimer);
+            if (currentStatus !== 'flipping' || !isFlipping) return;
+
+            clearInterval(flipInterval);
+            book.classList.remove('flipping');
+            isFlipping = false;
+            currentStatus = 'answered';
+            hintEl.innerText = "答案已現。再度【輕點書本任意處】即可合上重置";
+
+            const finalPair = answersDatabase[Math.floor(Math.random() * answersDatabase.length)];
+            answerEl.innerText = finalPair.ch;
+            leftContentEl.innerText = finalPair.en;
+        }
+
+        function resetToClosed() {
+            currentStatus = 'closed';
+            book.classList.remove('opened');
+            book.classList.add('closed');
+            setTimeout(() => {
+                if (currentStatus === 'closed') {
+                    cover.style.display = 'flex';
+                    innerPages.style.display = 'none';
+                }
+            }, 150);
+            hintEl.innerText = "書本已重置。閉上眼默想新問題，重新【長按書本】...";
+            answerEl.innerText = "啟示";
+            leftContentEl.innerText = "Translation";
+        }
+
+        book.addEventListener('mousedown', startPress);
+        window.addEventListener('mouseup', endPress);
+        book.addEventListener('touchstart', startPress);
+        book.addEventListener('touchend', endPress);
+    </script>
+</body>
+</html>
