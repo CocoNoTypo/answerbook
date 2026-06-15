@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>古籍秘典．答案之書</title>
     <!-- 引入古典歐風襯線字型與東方粗襯線字型 -->
     <link href="https://googleapis.com" rel="stylesheet">
@@ -10,28 +10,60 @@
         body {
             margin: 0; padding: 0; background: #ece0d1;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            height: 100vh; font-family: 'Noto Serif TC', 'Georgia', serif; user-select: none; overflow: hidden;
+            height: 100vh; font-family: 'Noto Serif TC', 'Georgia', serif; 
+            overflow: hidden;
+            /* 全面禁止手機網頁反白與長按快顯選單 */
+            -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+            -webkit-touch-callout: none;
         }
         .hint-text {
             color: #3e2723; font-family: 'Noto Serif TC', serif; font-weight: 900; font-size: 1.1rem;
             margin-bottom: 35px; letter-spacing: 4px; animation: pulse 2.5s infinite; text-align: center; height: 24px;
+            padding: 0 15px; box-sizing: border-box;
         }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-        .scene { width: 680px; height: 460px; perspective: 2200px; }
-        .book-container { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
+        
+        /* 3D 舞台場景設定 */
+        .scene { 
+            width: 680px; 
+            height: 460px; 
+            perspective: 2200px; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* 【關鍵手機修復】：當手機是直向螢幕（豎屏）時，自動等比例縮小整本書，完美塞入畫面 */
+        @media screen and (max-width: 700px) and (orientation: portrait) {
+            .scene {
+                transform: scale(0.53); /* 自動縮小至 53%，解決切掉一半的問題 */
+                transform-origin: center center;
+            }
+            .hint-text { font-size: 0.95rem; margin-bottom: 15px; }
+        }
+        
+        /* 當寬度極窄的小手機（如 iPhone SE）直向時，再微調縮小 */
+        @media screen and (max-width: 380px) and (orientation: portrait) {
+            .scene { transform: scale(0.46); }
+        }
+
+        .book-container { 
+            width: 680px; height: 460px; position: relative; transform-style: preserve-3d; 
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; 
+            -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+        }
         .book-container.closed { width: 345px; margin: 0 auto; box-shadow: 25px 35px 65px rgba(0,0,0,0.65), inset -15px 0 30px rgba(0,0,0,0.5); border-radius: 4px 16px 16px 4px; }
         .book-cover-state {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(circle at 60% 50%, #4a2f1d 0%, #261309 100%); color: #ebd18a;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             border-radius: 4px 16px 16px 4px; z-index: 20; box-sizing: border-box; padding: 35px;
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.85); border: 1px solid #1a0d08;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.85); border: 1px solid #1a0d08; backface-visibility: hidden;
         }
         .book-cover-state::before {
             content: ''; position: absolute; left: 0; top: 0; width: 24px; height: 100%;
             background: linear-gradient(to right, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 70%, rgba(255,255,255,0.08) 90%, rgba(0,0,0,0.4) 100%); border-radius: 4px 0 0 4px;
         }
-        /* 移除笨拙圖標，改用純 CSS 優雅邊框與直角內凹花邊切角 */
         .baroque-border {
             position: absolute; top: 16px; bottom: 16px; left: 36px; right: 18px;
             border: 2px solid #ebd18a; box-shadow: inset 0 0 0 4px rgba(235,209,138,0.15); pointer-events: none; opacity: 0.85;
@@ -44,55 +76,25 @@
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             box-shadow: 0 8px 20px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.6); background: rgba(0, 0, 0, 0.25); padding: 20px; box-sizing: border-box; margin-bottom: 5px; z-index: 2;
         }
-        /* 封面字體：精準幾何置中修正版 */
-        .cover-title {
-            font-family: 'Noto Serif TC', serif;
-            font-weight: 900;
-            font-size: 1.6rem;       /* 微調大小，確保單行完美鎖在圓圈內 */
-            letter-spacing: 10px;    /* 古典優雅字距 */
-            text-indent: 10px;       /* 核心：精準往右推回 10px，達到幾何絕對置中 */
-            text-shadow: 2px 3px 6px rgba(0,0,0,0.9);
-            color: #fff0c2;
-            text-align: center;
-            line-height: 1.2;
-            width: 100%;
-            white-space: nowrap;     /* 強制不換行 */
+        /* 強制單行．絕對置中 */
+        .cover-title { 
+            font-family: 'Noto Serif TC', serif; font-weight: 900; font-size: 1.6rem; 
+            letter-spacing: 10px; text-indent: 10px; text-shadow: 2px 3px 6px rgba(0,0,0,0.9); 
+            color: #fff0c2; text-align: center; line-height: 1.2; width: 100%; white-space: nowrap; 
         }
         .cover-subtitle { font-family: 'Cinzel', serif; font-weight: 900; font-size: 0.75rem; letter-spacing: 4px; margin-top: 12px; border-top: 1px solid rgba(235,209,138,0.5); padding-top: 8px; text-shadow: 1px 2px 3px rgba(0,0,0,0.8); color: #ebd18a; text-indent: 4px; }
         .book-container.opened { width: 680px; background: #21110a; padding: 12px; border-radius: 4px; box-shadow: 0 35px 70px rgba(0,0,0,0.55); box-sizing: border-box; }
         .book-pages { width: 100%; height: 100%; background: linear-gradient(135deg, #fffdf4 0%, #f6ebd0 40%, #eddca4 80%, #dfcc91 100%); border-radius: 2px; display: flex; position: relative; box-shadow: inset 0 0 60px rgba(62, 39, 15, 0.35); }
         .book-pages::after { content: ''; position: absolute; left: 50%; top: 0; width: 12px; height: 100%; background: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,0.35), rgba(0,0,0,0.65), rgba(0,0,0,0.35), rgba(0,0,0,0)); transform: translateX(-50%); }
-        /* 印刷基準排版，徹底消除飄浮兒戲感 */
         .page { flex: 1; padding: 55px 45px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; box-sizing: border-box; position: relative; }
         .page-left { border-right: 1px solid rgba(62, 39, 15, 0.2); }
         .page-deco { border: 1px solid #d3c29d; position: absolute; top: 22px; bottom: 22px; left: 22px; right: 22px; pointer-events: none; }
         .page-deco::before { content: ''; border: 1px solid #d3c29d; position: absolute; top: 4px; bottom: 4px; left: 4px; right: 4px; }
         .page-title { font-family: 'Cinzel', serif; font-weight: 900; font-size: 1.05rem; color: #614631; margin-bottom: 0px; letter-spacing: 5px; height: 30px; }
-        /* 核心答案容器：改回完全置中的黃金比例 */
-        .answer-container {
-            width: 90%;
-            height: 210px;       /* 保持與英文對齊高度一致 */
-            margin-top: 40px;    
-            display: flex;
-            flex-direction: column;
-            justify-content: center; /* 垂直置中 */
-            align-items: center;     /* 水平置中 */
-        }
-
-        /* 右頁中文：徹底放棄分散對齊，改用絕對安全的完全置中，絕不歪斜 */
-        #answer {
-            font-family: 'Xingkai TC', 'Kaiti TC', 'Noto Serif TC', '華康行楷體', '標楷體', serif;
-            font-weight: 800;
-            font-size: 1.85rem;
-            letter-spacing: 4px;     /* 微調字距，讓短句排列更自然 */
-            text-indent: 4px;        /* 抵消字距偏心 */
-            color: #1e120b;
-            line-height: 1.6;
-            width: 100%;             /* 放開寬度限制，讓瀏覽器自然排版 */
-            text-align: center;      /* 【關鍵】：文字完全水平置中 */
-            text-align-last: center; /* 確保所有行都完全置中 */
-        }
-        #left-content { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.35rem; color: #44342a; line-height: 1.6; max-width: 220px; text-align: center; }
+        .answer-container { width: 90%; height: 210px; margin-top: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        /* 答案完全水平置中 + 垂直置中，絕不歪斜 */
+        #answer { font-family: 'Xingkai TC', 'Kaiti TC', 'Noto Serif TC', '華康行楷體', '標楷體', serif; font-weight: 800; font-size: 1.85rem; letter-spacing: 4px; text-indent: 4px; color: #1e120b; line-height: 1.6; width: 100%; text-align: center; text-align-last: center; }
+        #left-content { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.35rem; color: #44342a; line-height: 1.6; width: 100%; text-align: center; }
         .answer-container::after { content: '❦'; color: #8c2d19; font-size: 0.95rem; margin-top: 25px; display: block; opacity: 0.75; }
         .page-number { position: absolute; bottom: 28px; font-family: 'Cinzel', serif; font-size: 0.8rem; color: #8c715b; letter-spacing: 3px; }
         .flipping .answer-text { animation: blurText 0.08s infinite alternate; }
@@ -100,13 +102,11 @@
     </style>
 </head>
 <body>
-    <!-- [下段請接續黏貼第 2 段的 HTML 書本主體] -->
+
     <div class="hint-text" id="hint">閉上眼默想問題，【長按書本】以翻閱解答...</div>
 
     <div class="scene">
         <div class="book-container closed" id="book">
-            
-            <!-- 奢華古典封面（CSS 細緻花框與立體中軸） -->
             <div class="book-cover-state" id="cover">
                 <div class="baroque-border"></div>
                 <div class="cover-center-circle">
@@ -115,7 +115,6 @@
                 </div>
             </div>
 
-            <!-- 展開後的羊皮紙雙內頁（印刷對齊版） -->
             <div class="book-pages" id="inner-pages" style="display: none;">
                 <div class="page page-left">
                     <div class="page-deco"></div>
@@ -134,12 +133,10 @@
                     <div class="page-number">- X -</div>
                 </div>
             </div>
-
         </div>
     </div>
-
     <script>
-        // 150 句原版中英對照經典句庫（第 1 ~ 50 句）
+        // 150 句原版中英對照經典句庫（第 1 ~ 75 句）
         const answersDatabase = [
             { ch: "毫無疑問。", en: "Without a doubt." },
             { ch: "就是現在。", en: "Now is the time." },
@@ -182,16 +179,15 @@
             { ch: "這不值得你如此焦慮。", en: "This is truly not worth your anxiety." },
             { ch: "拒絕是更好的選擇。", en: "Saying no is the much better choice." },
             { ch: "事情可能不如你想像的單純。", en: "Things may not be as simple as you think." },
-            { ch: "這是一個微險的信號。", en: "This is a highly dangerous signal." },
+            { ch: "這是一個危險的信號。", en: "This is a highly dangerous signal." },
             { ch: "不要試圖去強求結果。", en: "Do not try to force a specific outcome." },
             { ch: "現在不是意氣用事的時候。", en: "Now is not the time to act on impulse." },
             { ch: "這件事並沒有實質的意義。", en: "This matter carries no real significance." },
             { ch: "避開這個不必要的麻煩。", en: "Steer clear of this unnecessary trouble." },
             { ch: "這只是一個短暫的錯覺。", en: "This is merely a fleeting illusion." },
             { ch: "你的方向需要重新調整。", en: "Your direction needs to be readjusted." },
-            { ch: "這件事會讓你分心。", en: "This matter will only distract you." },
+            { ch: "開展這件事會讓你分心。", en: "This matter will only distract you." },
             { ch: "放手會讓你更加輕鬆。", en: "Letting go will bring you greater peace." },
-            // [下段請接續黏貼第 3 段的第 51 ~ 100 句庫]
             { ch: "順其自然，答案自會浮現。", en: "Let it be, the answer will emerge itself." },
             { ch: "保持沉默，時間會證明一切。", en: "Stay silent, time will prove everything." },
             { ch: "這需要看你如何去定義它。", en: "It depends on how you choose to define it." },
@@ -217,6 +213,7 @@
             { ch: "不要急著下定論。", en: "Do not rush to a final conclusion." },
             { ch: "局勢還不夠明朗。", en: "The situation is not yet clear enough." },
             { ch: "過一段時間再看吧。", en: "Look at it again after some time." },
+            // [下段請接續黏貼第 3 段句庫]
             { ch: "傾聽你內心最初的直覺。", en: "Listen closely to your first intuition." },
             { ch: "你需要先放下心中的執念。", en: "You must first let go of your obsession." },
             { ch: "先找回你內心的平靜。", en: "Find your inner peace before anything else." },
@@ -240,9 +237,8 @@
             { ch: "尋求身邊信任朋友的建議。", en: "Seek advice from a friend you fully trust." },
             { ch: "這需要團隊的通力合作。", en: "This requires full teamwork and cooperation." },
             { ch: "多聽聽專業人士的意見。", en: "Listen more to the opinions of experts." },
-            { ch: "不要試圖一人承擔所有。", en: "Do not try to bear everything all alone." },
+            { ch: "不要試圖一個人承擔所有。", en: "Do not try to bear everything all alone." },
             { ch: "與他人分享你的困擾。", en: "Share your troubles with someone else." },
-            // [下段請接續黏貼第 4 段的最後剩餘句庫與核心互動邏輯]
             { ch: "主動去尋求幫助吧。", en: "Take the initiative to ask for help." },
             { ch: "這個問題需要溝通來解決。", en: "This issue must be resolved by communication." },
             { ch: "多站在對方的角度思考。", en: "Think more from the other side's perspective." },
@@ -263,7 +259,7 @@
             { ch: "不要在一棵樹上吊死。", en: "Do not put all your eggs in one basket." },
             { ch: "生活需要一點儀式感。", en: "Life requires a certain sense of ritual." },
             { ch: "確保你擁有足夠的籌碼。", en: "Make sure you hold enough chips in your hand." },
-            { ch: "保持清醒，別掉入陷阱。", en: "Stay clear-headed and do not fall into traps." },
+            { ch: "保持清醒，別掉入陷阱。", en: "Stay clear-headed and do not fall into traps into traps." },
             { ch: "貪心會讓你失去更多。", en: "Greed will cause you to lose even more." },
             { ch: "有些規則是不能打破的。", en: "There are certain rules that must never be broken." },
             { ch: "平平淡淡才是真。", en: "True happiness lies in simple living." },
@@ -294,7 +290,8 @@
             { ch: "這會讓你付出太高的代價。", en: "This will cost you an incredibly high price." },
             { ch: "放手會讓你更加輕鬆。", en: "Letting go will lift a heavy weight off your shoulders." }
         ];
-
+        // [下段請接續黏貼第 4 段的防卡死核心開合控制邏輯]
+        // 核心觸控優化：使用精確狀態機管理控制，徹底消除手機卡死與不斷自轉的 Bug
         const book = document.getElementById('book');
         const cover = document.getElementById('cover');
         const innerPages = document.getElementById('inner-pages');
@@ -304,69 +301,105 @@
 
         let flipInterval = null;
         let isFlipping = false;
-        let currentStatus = 'closed'; 
+        let currentStatus = 'closed'; // 狀態管理：closed -> flipping -> answered
         let pressTimer = null;
 
+        // 【動作 1】：按下按鍵/手指觸碰（準備翻頁）
         function startPress(e) {
-            e.preventDefault();
+            // 如果當前是已經展示答案的狀態，這次觸發直接【合上書本重置】
             if (currentStatus === 'answered') {
                 resetToClosed();
                 return;
             }
-            if (currentStatus !== 'closed') return;
+            if (currentStatus !== 'closed' || isFlipping) return;
 
+            // 設定 150 毫秒的延遲，區分日常滑動與刻意長按
             pressTimer = setTimeout(() => {
-                isFlipping = true;
-                currentStatus = 'flipping';
-                book.classList.remove('closed');
-                book.classList.add('opened');
-                cover.style.display = 'none';
-                innerPages.style.display = 'flex';
-                book.classList.add('flipping');
-                hintEl.innerText = "正在凝聚能量... 放開滑鼠以獲得啟示";
-
-                flipInterval = setInterval(() => {
-                    const randomPair = answersDatabase[Math.floor(Math.random() * answersDatabase.length)];
-                    answerEl.innerText = randomPair.ch.slice(0, 4) + "...";
-                    leftContentEl.innerText = randomPair.en.slice(0, 10) + "...";
-                }, 65);
-            }, 150); 
+                triggerFlipping();
+            }, 150);
         }
 
+        // 啟動快速翻頁動畫
+        function triggerFlipping() {
+            isFlipping = true;
+            currentStatus = 'flipping';
+            
+            // 開啟 3D 書本內頁結構
+            book.classList.remove('closed');
+            book.classList.add('opened');
+            cover.style.display = 'none';
+            innerPages.style.display = 'flex';
+            book.classList.add('flipping');
+            hintEl.innerText = "正在凝聚能量... 放開以獲得啟示";
+
+            // 高頻變換模糊亂碼
+            flipInterval = setInterval(() => {
+                const randomPair = answersDatabase[Math.floor(Math.random() * answersDatabase.length)];
+                answerEl.innerText = randomPair.ch.slice(0, 4) + "...";
+                leftContentEl.innerText = randomPair.en.slice(0, 10) + "...";
+            }, 65);
+        }
+
+        // 【動作 2】：放開按鍵/手指抬起（鎖定最終答案）
         function endPress(e) {
-            clearTimeout(pressTimer);
+            // 清除長按延時，防止短點擊觸發誤判
+            if (pressTimer) clearTimeout(pressTimer);
+            
+            // 如果根本還沒進入 flipping 狀態，直接退出
             if (currentStatus !== 'flipping' || !isFlipping) return;
 
-            clearInterval(flipInterval);
+            // 百分之百截斷計時器，防止手機自轉
+            if (flipInterval) clearInterval(flipInterval);
             book.classList.remove('flipping');
             isFlipping = false;
             currentStatus = 'answered';
             hintEl.innerText = "答案已現。再度【輕點書本任意處】即可合上重置";
 
+            // 精確抽取 150 句中的隨機隨機一組答案
             const finalPair = answersDatabase[Math.floor(Math.random() * answersDatabase.length)];
             answerEl.innerText = finalPair.ch;
             leftContentEl.innerText = finalPair.en;
         }
 
+        // 【動作 3】：點擊任意處將書本完全合攏重置（Reset）
         function resetToClosed() {
             currentStatus = 'closed';
+            isFlipping = false;
+            if (flipInterval) clearInterval(flipInterval);
+            
             book.classList.remove('opened');
             book.classList.add('closed');
+            
+            // 配合 CSS 的 3D 動態寬度縮小，微調延遲展示封面
             setTimeout(() => {
                 if (currentStatus === 'closed') {
                     cover.style.display = 'flex';
                     innerPages.style.display = 'none';
                 }
-            }, 150);
+            }, 120);
+
             hintEl.innerText = "書本已重置。閉上眼默想新問題，重新【長按書本】...";
             answerEl.innerText = "啟示";
             leftContentEl.innerText = "Translation";
         }
 
+        // 電腦滑鼠事件註冊
         book.addEventListener('mousedown', startPress);
         window.addEventListener('mouseup', endPress);
-        book.addEventListener('touchstart', startPress);
-        book.addEventListener('touchend', endPress);
+
+        // 手機/行動裝置原生觸控精準阻斷修正
+        book.addEventListener('touchstart', function(e) {
+            if (e.cancelable) e.preventDefault(); // 強行封鎖手機原生長按快顯複製選單
+            startPress(e);
+        }, { passive: false });
+
+        book.addEventListener('touchend', function(e) {
+            if (e.cancelable) e.preventDefault();
+            endPress(e);
+        }, { passive: false });
+
+        // 行動端關鍵補救：如果手指滑出螢幕外、滑出書本範圍，同樣強制作為「放開手指」結算
+        book.addEventListener('touchcancel', function(e) {
+            endPress(e);
+        }, { passive: false });
     </script>
-</body>
-</html>
