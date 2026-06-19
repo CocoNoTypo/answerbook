@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>答案之書</title>
+    <!-- 引入巴洛克歐風古典襯線字型與東方粗襯線字型 -->
+    <link href="https://googleapis.com" rel="stylesheet">
+    <style>
+        body {
+            margin: 0; padding: 0; background: #ece0d1;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            height: 100vh; font-family: 'Noto Serif TC', 'Georgia', serif; user-select: none; overflow: hidden;
+        }
+        .hint-text {
+            color: #3e2723; font-family: 'Noto Serif TC', serif; font-weight: 900; font-size: 1.1rem;
+            margin-bottom: 35px; letter-spacing: 4px; animation: pulse 2.5s infinite; text-align: center; height: 24px;
+            padding: 0 15px; box-sizing: border-box;
+        }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        .scene { width: 680px; height: 460px; perspective: 2200px; display: flex; justify-content: center; align-items: center; }
+        
+        /* 手機豎屏自動等比例縮放，保證外觀絕對不切邊 */
+        @media screen and (max-width: 700px) and (orientation: portrait) {
+            .scene { transform: scale(0.53); transform-origin: center center; }
+            .hint-text { font-size: 0.95rem; margin-bottom: 15px; }
+        }
+        @media screen and (max-width: 380px) and (orientation: portrait) {
+            .scene { transform: scale(0.46); }
+        }
+
+        .book-container { width: 680px; height: 460px; position: relative; transform-style: preserve-3d; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+        .book-container.closed { width: 345px; margin: 0 auto; box-shadow: 25px 35px 65px rgba(0,0,0,0.65), inset -15px 0 30px rgba(0,0,0,0.5); border-radius: 4px 16px 16px 4px; }
+        .book-cover-state {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 60% 50%, #4a2f1d 0%, #261309 100%); color: #ebd18a;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            border-radius: 4px 16px 16px 4px; z-index: 20; box-sizing: border-box; padding: 35px;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.85); border: 1px solid #1a0d08; backface-visibility: hidden;
+        }
+        .book-cover-state::before {
+            content: ''; position: absolute; left: 0; top: 0; width: 24px; height: 100%;
+            background: linear-gradient(to right, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 70%, rgba(255,255,255,0.08) 90%, rgba(0,0,0,0.4) 100%); border-radius: 4px 0 0 4px;
+        }
+        .baroque-border {
+            position: absolute; top: 16px; bottom: 16px; left: 36px; right: 18px;
+            border: 2px solid #ebd18a; box-shadow: inset 0 0 0 4px rgba(235,209,138,0.15); pointer-events: none; opacity: 0.85;
+        }
+        .baroque-border::before {
+            content: ''; position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; border: 1px dashed rgba(235,209,138,0.4);
+        }
+        .cover-center-circle {
+            width: 190px; height: 190px; border: 3px double #ebd18a; border-radius: 50%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.6); background: rgba(0, 0, 0, 0.25); padding: 20px; box-sizing: border-box; margin-bottom: 5px; z-index: 2;
+        }
+        /* 大氣單行，絕對幾何置中 */
+        .cover-title { font-family: 'Noto Serif TC', serif; font-weight: 900; font-size: 1.6rem; letter-spacing: 10px; text-indent: 10px; text-shadow: 2px 3px 6px rgba(0,0,0,0.9); color: #fff0c2; text-align: center; line-height: 1.2; width: 100%; white-space: nowrap; }
+        .cover-subtitle { font-family: 'Cinzel', serif; font-weight: 900; font-size: 0.75rem; letter-spacing: 4px; margin-top: 12px; border-top: 1px solid rgba(235,209,138,0.5); padding-top: 8px; text-shadow: 1px 2px 3px rgba(0,0,0,0.8); color: #ebd18a; text-indent: 4px; }
+        .book-container.opened { width: 680px; background: #21110a; padding: 12px; border-radius: 4px; box-shadow: 0 35px 70px rgba(0,0,0,0.55); box-sizing: border-box; }
+        .book-pages { width: 100%; height: 100%; background: linear-gradient(135deg, #fffdf4 0%, #f6ebd0 40%, #eddca4 80%, #dfcc91 100%); border-radius: 2px; display: flex; position: relative; box-shadow: inset 0 0 60px rgba(62, 39, 15, 0.35); }
+        .book-pages::after { content: ''; position: absolute; left: 50%; top: 0; width: 12px; height: 100%; background: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,0.35), rgba(0,0,0,0.65), rgba(0,0,0,0.35), rgba(0,0,0,0)); transform: translateX(-50%); }
+        
+        /* 印刷對齊基準線 */
+        .page { flex: 1; padding: 55px 45px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; box-sizing: border-box; position: relative; }
+        .page-left { border-right: 1px solid rgba(62, 39, 15, 0.2); }
+        .page-deco { border: 1px solid #d3c29d; position: absolute; top: 22px; bottom: 22px; left: 22px; right: 22px; pointer-events: none; }
+        .page-deco::before { content: ''; border: 1px solid #d3c29d; position: absolute; top: 4px; bottom: 4px; left: 4px; right: 4px; }
+        .page-title { font-family: 'Cinzel', serif; font-weight: 900; font-size: 1.05rem; color: #614631; margin-bottom: 0px; letter-spacing: 5px; height: 30px; }
+        .answer-container { width: 90%; height: 210px; margin-top: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        
+        /* 完美置中與流暢行楷字體 */
+        #answer { font-family: 'Xingkai TC', 'Kaiti TC', 'Noto Serif TC', '華康行楷體', '標楷體', serif; font-weight: 800; font-size: 1.65rem; letter-spacing: 4px; text-indent: 4px; color: #1e120b; line-height: 1.6; width: 100%; text-align: center; text-align-last: center; }
+        #left-content { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.25rem; color: #44342a; line-height: 1.5; width: 100%; text-align: center; }
+        .answer-container::after { content: '❦'; color: #8c2d19; font-size: 0.95rem; margin-top: 25px; display: block; opacity: 0.75; }
+        .page-number { position: absolute; bottom: 28px; font-family: 'Cinzel', serif; font-size: 0.8rem; color: #8c715b; letter-spacing: 3px; }
+        .flipping .answer-text { animation: blurText 0.08s infinite alternate; }
+        @keyframes blurText { 0% { filter: blur(2px); opacity: 0.35; } 100% { filter: blur(9px); opacity: 0.03; } }
+    </style>
+</head>
+<body>
+
+    <div class="hint-text" id="hint">閉上眼默想問題，【長按書本】以翻閱解答...</div>
+
+    <div class="scene">
+        <div class="book-container closed" id="book">
+            <div class="book-cover-state" id="cover">
+                <div class="baroque-border"></div>
+                <div class="cover-center-circle">
+                    <div class="cover-title">答案之書</div>
+                    <div class="cover-subtitle">THE BOOK</div>
+                </div>
+            </div>
+
+            <div class="book-pages" id="inner-pages" style="display: none;">
+                <div class="page page-left">
+                    <div class="page-deco"></div>
+                    <div class="page-title">VERITAS</div>
+                    <div class="answer-container">
+                        <div class="answer-text" id="left-content">Translation</div>
+                    </div>
+                    <div class="page-number">- LXVI -</div>
+                </div>
+                <div class="page page-right">
+                    <div class="page-deco"></div>
+                    <div class="page-title">RESPONSUM</div>
+                    <div class="answer-container">
+                        <div class="answer-text" id="answer">啟示</div>
+                    </div>
+                    <div class="page-number">- LXVII -</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // 150句獨家專屬「古典優雅諷刺風」中英雙語對照句庫（1-50句）
+        const answersDatabase = [
+            // 一、 命運與哲學類（假裝深奧的廢話）
+            { ch: "宇宙運行的邏輯很複雜，但這跟你有什麼關係？", en: "The cosmic order is intricate, yet how does it concern thee?" },
+            { ch: "答案就在你心裡，只是你心眼太多找不到。", en: "The truth lies within, yet thy deceit obscures the path." },
+            { ch: "如果這件事真的很重要，你現在就不會在這裡翻書了。", en: "Were this matter vital, thou wouldn't be flipping pages." },
+            { ch: "這不是命運的安排，純粹是你的操作問題。", en: "Tis not a twist of fate, tis merely thy poor execution." },
+            { ch: "抬頭看看天空吧，這一切跟天空一樣，毫無意義。", en: "Gaze upon the heavens; like them, all is utterly vain." },
+            { ch: "這個問題的答案，取決於你明天早餐吃什麼。", en: "The answer shifts on what thou shalt break thy fast with." },
+            { ch: "有些事情現在不做，以後就……不用做了。", en: "Some deeds left undone now need never be done later." },
+            { ch: "保持現狀吧，反正換個姿勢也不會比較舒服。", en: "Stay thy course; shifting posture grants no further comfort." },
+            { ch: "既然你都問了，那我建議你先去洗個澡。", en: "Since thou hast inquired, I bid thee cleanse thyself first." },
+            { ch: "這就像微波爐加熱一樣，熱鬧一陣子，出來還是冷的。", en: "A brief flash of heat, yet remains cold to the core." },
+            { ch: "你的直覺很準，但你的運氣通常不配合。", en: "Thy intuition is sharp, yet thy fortune seldom complies." },
+            { ch: "命運的大門正為你敞開，但可能是後門。", en: "The gates of fate open wide, yet tis likely the backdoor." },
+            { ch: "一切都是最好的安排，除了你現在面對的這一件。", en: "All is well ordained, save for thy present predicament." },
+            { ch: "放下吧，反正你也抓不住。", en: "Let it depart from thee, for thou couldst never grasp it." },
+            { ch: "答案是肯定的，如果你的問題是「我是不是又搞砸了？」。", en: "The answer is yes, if thy query was: Did I ruin it again?" },
+            { ch: "這件事情的機率，介於有和沒有之間。", en: "The probability dwells vaguely between being and nothingness." },
+            { ch: "你就像天上的星星，離成功非常遙遠且冰冷。", en: "Like a cold star, thou art remote from thy triumphs." },
+            { ch: "如果生活是一面鏡子，你現在最好閉上眼睛。", en: "If life be a mirror, thou hadst best close thine eyes." },
+            { ch: "順其自然吧，反正你努力了也沒用。", en: "Yield to nature; thy struggles are futile regardless." },
+            { ch: "命運正對你微笑，但那是帶有嘲諷意味的冷笑。", en: "Destiny smiles upon thee, yet tis a grin of pure mockery." },
+            { ch: "事情會好起來的，只要你對「好」的要求不要太高。", en: "Things shall amend, provided thy standards remain low." },
+            { ch: "時間會沖淡一切，但會留下肥肉。", en: "Time washes all away, yet leaves the stubborn flesh." },
+            { ch: "你可能需要一個奇蹟，或者一個藉口。", en: "Thou art in dire need of a miracle, or a grand excuse." },
+            { ch: "這是一個好問題，請保持這個疑問直到你忘記。", en: "An excellent query; harbor it until tis forgotten." },
+            { ch: "答案在風中飄盪，而你今天剛好逆風。", en: "The answer blows in the wind, and thou art sailing against it." },
+
+            // 二、 人際與感情類（渣男／渣女級的推託）
+            { ch: "他／她其實很在意你，在意你什麼時候才要放棄。", en: "They care deeply—mostly about when thou wilt give up." },
+            { ch: "聚散皆是緣，主要看你皮夾的厚度。", en: "Union and parting are fate; it mostly depends on thy purse." },
+            { ch: "真正的愛情就像鬼，聽過的人多，遇見的人少。", en: "True love is like a phantom: rumored by many, seen by few." },
+            { ch: "他／她沒有不讀不回，他／她只是在跟別人聊得很開心。", en: "They aren't ignoring thee; they just enjoy another's company." },
+            { ch: "放手吧，對方的手汗已經夠多了。", en: "Release thy grip; their palms are already far too sweaty." },
+            { ch: "如果你覺得他／她變了，那是因為他／她演累了。", en: "If they seem altered, tis merely because they tire of acting." },
+            { ch: "保持距離，不僅能產生美，還能保平安。", en: "Distance yields beauty, and more importantly, grants safety." },
+            { ch: "對方只是把你當成背景音樂，有很好，沒有也沒差。", en: "Thou art but background music; pleasant to have, easy to lose." },
+            { ch: "在感情的世界裡，你負責當那個「世界」。", en: "In the realm of romance, thy sole duty is to be the ground." },
+            { ch: "多從自己身上找原因，是不是你太好騙了？", en: "Examine thine own self; art thou simply too gullible?" },
+            { ch: "他／她對你很坦白，除了名字和性別可能都是假的。", en: "They are perfectly candid, save that all they say is false." },
+            { ch: "換個對象吧，這個人看起來智商跟你差不多。", en: "Seek another; this one's intellect mirrors thine own closely." },
+            { ch: "你們的關係就像過期的牛奶，倒掉可惜，喝了拉肚子。", en: "Like expired milk: a pity to discard, yet painful to consume." },
+            { ch: "勇敢跨出那一步，你就會發現前面是懸崖。", en: "Step forward with courage, only to discover the abyss." },
+            { ch: "對方很欣賞你的勇氣，但也僅限於勇氣。", en: "They admire thy valor, yet their admiration ends precisely there." },
+            { ch: "你對他／她而言，就像冬天的短袖，派不上用場。", en: "To them, thou art like short sleeves in winter—utterly useless." },
+            { ch: "兩情相悅的機率，大概跟你中發票的機率差不多。", en: "Mutual affection is as rare as winning the grand lottery." },
+            { ch: "他／慢的未來規劃裡有很多人，唯獨沒有你。", en: "Their blueprint for the future holds many souls, excluding thee." },
+            { ch: "喜歡就去告白啊，不被拒絕一下你還真以為自己是主角。", en: "Confess thy love; a rejection shall remind thee thou art no hero." },
+            { ch: "你們真的很配，在倒楣這方面。", en: "Thou art an ideal match—specifically in the art of misfortune." },
+            { ch: "試著多溝通，這樣你就能更清楚地知道他有多討厭你。", en: "Communicate more, to discern exactly how much thou art loathed." },
+            { ch: "熱臉貼冷屁股也是一種保暖方式。", en: "Pressing thy warm face against indifference is a way to survive." },
+            { ch: "他／她只是在等一個比你更好的人出現。", en: "They are merely biding time for someone superior to appear." },
+            { ch: "這段關係的終點站快到了，請準備好你的眼淚。", en: "The final station approaches; pray prepare thy tears." },
+            { ch: "不要為了一棵樹放棄整片森林，雖然那片森林也不要你。", en: "Forsake not the forest for a tree, though the forest wants thee not." },
+            // [下段請接續黏貼第 3 段的第 51 ~ 100 句庫]
+            // 三、 工作與財富類（社畜的靈魂拷問）
+            { ch: "只要你肯努力，你的老闆明年就能換新車。", en: "If thou dost labor hard, thy master shall ride a new chariot anon." },
+            { ch: "錢不是萬能的，有時候還需要信用卡。", en: "Gold is not omnipotent; at times, a line of credit is required." },
+            { ch: "你的才華就像地下的石油，很難被開發，而且很油。", en: "Thy talent is like crude oil: hidden deep, and exceedingly greasy." },
+            { ch: "這份工作最大的優點，就是讓你每天都想退休。", en: "The finest virtue of thy labor is the daily longing for retreat." },
+            { ch: "升職加薪在路路上了，只是它搭的是區間車。", en: "Thy promotion is on its way, yet it rideth the slowest cart." },
+            { ch: "只要你主動，你跟貧窮就會有說不完的故事。", en: "Shouldst thou take initiative, thou and poverty shall share endless tales." },
+            { ch: "你的存款正在以肉眼可見的速度……保持為零。", en: "Thy wealth, at a speed visible to the eye, remaineth naught." },
+            { ch: "辛苦這陣子，就可以辛苦下陣子了。", en: "Toil through this season, so thou mayest toil in the next." },
+            { ch: "離職是不可能的，你連買杯大冰奶都要考慮。", en: "Resignation is a myth; thou ponderest even the cost of sweet milk." },
+            { ch: "天才與瘋子只有一線之隔，而你卡在平庸那條線上。", en: "Genius and madness are divided by a line, yet thou art stuck on mediocrity." },
+            { ch: "你的建議很好，經理決定交給別人來做。", en: "Thy counsel is superb; the overseer hath given it to another." },
+            { ch: "只要不努力，生活就不會有壓力。", en: "Cease thy strivings, and thy life shall know no pressure." },
+            { ch: "錢包就像洋蔥，每次打開都想哭。", en: "Thy purse is like an onion: every opening brings forth tears." },
+            { ch: "今天也是當薪水小偷的一天呢，加油！", en: "Another day as a thief of wages; carry on with vigor." },
+            { ch: "你的前途一片光明，刺眼到你根本看不清路。", en: "Thy future is so bright it blindeth thee from the path." },
+            { ch: "這個項目會成功的，在夢裡。", en: "This enterprise shall surely triumph—within thy dreams." },
+            { ch: "職場就是這樣，能者多勞，不能者回家吃自己。", en: "The market is thus: the able endure toil, the unable starve alone." },
+            { ch: "你的抗壓性很高，這代表老闆可以再塞一堆垃圾給你。", en: "Thy high endurance merely biddeth thy master to pile on more rubbish." },
+            { ch: "不要把工作帶回家，把怨氣帶回家就好。", en: "Bring not thy labor home; bring only thy bitter resentment." },
+            { ch: "財富自由離你很近，大概只有八個零的距離。", en: "Financial liberty is nigh, separated only by a span of eight zeros." },
+            { ch: "你的工作表現很穩定，一直都很讓人擔心。", en: "Thy performance is steady, remaining ever a cause for deep worry." },
+            { ch: "邊只要你肯加班，就沒有解決不了的健康問題。", en: "If thou workest late enough, all health concerns shall resolve themselves." },
+            { ch: "今天的努力，是為了明天能更有底氣地被拒絕。", en: "Toil today, that thou mayest be rejected with greater confidence tomorrow." },
+            { ch: "你的履歷寫得很好，下次別寫了。", en: "Thy scroll of life is well penned; pray write it no more." },
+            { ch: "放心，這份工作離了你，大家會過得更好。", en: "Take heart; once thou art gone, the rest shall fare much better." },
+
+            // 四、 選擇與決策類（絕對不負責任的建議）
+            { ch: "做決定前先擲銅板，正面就做，反面就怪銅板。", en: "Flip a coin; if the face displeases thee, blame the coin." },
+            { ch: "這兩個選項都很爛，選那個比較好笑的吧。", en: "Both choices are wretched; select the one that yields more laughter." },
+            { ch: "聽從你內心的聲音，雖然它通常在說廢話。", en: "Harken to thy inner voice, though it uttereth mostly nonsense." },
+            { ch: "猶豫不決的時候，睡一覺就不用選了。", en: "When torn by doubt, slumber shall dissolve the need to choose." },
+            { ch: "衝動是魔鬼，但你現在需要魔鬼的幫忙。", en: "Impulse is a demon, yet thou art in dire need of demonic aid now." },
+            { ch: "選A你會後悔，選B你會絕望，自己看著辦。", en: "Choose A and regret; choose B and despair; the burden is thine." },
+            { ch: "其實你早就選好了，你只是想找這本書幫你背鍋。", en: "Thou hast already chosen; thou merely seekest this book to bear the blame." },
+            { ch: "兩個都不要，這才是成熟大人的做法。", en: "Reject both paths; such is the wisdom of a mature soul." },
+            { ch: "這件事需要理智，可惜你剛好沒有。", en: "This matter demandeth reason, which thou hast currently misplaced." },
+            { ch: "閉著眼睛選，反正結果都不會太好看。相信我。", en: "Choose with eyes shut; the outcome shall be uncomely regardless." },
+            { ch: "建議你諮詢專業人士，比如路邊算命的。", en: "Consult a professional—such as the seer upon the street corner." },
+            { ch: "現在是做出改變的好時機，例如換個方向逃跑。", en: "Tis a fine hour for change; peradventure, flee in another direction." },
+            { ch: "如果你選錯了，就假裝是故意的。", en: "Shouldst thou err in thy choice, feign that it was thy design." },
+            { ch: "不要問我，我只是一本印刷品。", en: "Inquire not of me, for I am but a humble product of the press." },
+            { ch: "這題超綱了，請重新投胎再問。", en: "This riddle surpasses thy life; pray reincarnate and ask again." },
+            { ch: "答案是正確的，但你的問題問錯了。", en: "The response is true, yet thy query was falsely put." },
+            { ch: "向左走或向右走都行，反正你最後都會迷路。", en: "Turn left or right as thou wilt; thou shalt lose thy way regardless." },
+            { ch: "聽朋友的勸吧，雖然他們也過得很慘。", en: "Heed thy companions' advice, though they fare no better than thee." },
+            { ch: "這件事需要大膽嘗試，反正丟臉的不是我。", en: "This requires a bold trial; at least, the shame is not mine." },
+            { ch: "拋開顧慮吧，反正你也沒什麼可以失去的了。", en: "Cast away thy cares; thou hast naught left to lose anyway." },
+            { ch: "保持理智，這能讓你清醒地看著自己破產。", en: "Stay rational, that thou mayest watch thy ruin with a clear mind." },
+            { ch: "機會稍縱即逝，而你剛好在低頭玩手機。", en: "Opportunity flies swift, yet thou wert gazing down upon thy glass device." },
+            { ch: "選擇那個能讓你睡得比較香的選項。", en: "Choose whichever path granteth thee a sweeter slumber." },
+            { ch: "不要勉強自己，直接放棄會輕鬆很多。", en: "Force not thyself; surrender yields immediate relief." },
+            { ch: "這個決定會影響你的一生，開玩笑的，沒那麼嚴重。", en: "This choice shall alter thy whole life—jesting, tis not so grave." },
+            // [下段請接續黏貼第 4 段的後半部剩餘句庫與核心互動邏輯]
+            // 五、 自我懷疑類（毒舌派的溫暖大抱抱）
+            { ch: "雖然你長得不美，但你想得美啊。", en: "Though thy countenance lacks beauty, thy imagination is splendid." },
+            { ch: "不要否定自己，這件事留給別人做就好。", en: "Deny not thyself; leave that task for others to fulfill." },
+            { ch: "你不是一無所有，你還有病。", en: "Thou art not entirely empty-handed; thou still hast thy ailments." },
+            { ch: "每天照鏡子，是保持謙虛最好的方法。", en: "Gazing into the mirror daily is the finest remedy for pride." },
+            { ch: "你的缺點就像星星一樣多，優點就像太陽一樣少。但太陽一出來，星星就沒了。", en: "Thy flaws are like stars, thy virtues like the sun; yet when the sun riseth, the stars vanish." },
+            { ch: "上天關了你一扇門，順便把窗也給鎖死了。", en: "Heaven hath closed a door upon thee, and firmly bolted the window too." },
+            { ch: "你很特別，特別容易被忽略。", en: "Thou art truly unique—uniquely easy to overlook." },
+            { ch: "不要跟別人比，你會自卑；跟自己比，你會絕望。", en: "Compare with others and envy; compare with thyself and despair." },
+            { ch: "你的存在本身就是個奇蹟，雖然是搞笑片的那種。", en: "Thy very existence is a miracle, albeit of a farcical nature." },
+            { ch: "悲傷的時候摸摸自己的肚子，至少你還有一圈肉陪著你。", en: "In sorrow, touch thy belly; at least that layer of flesh remaineth faithful." },
+            { ch: "沒關係的，大家其實都沒在看你。", en: "Be comforted; in truth, no soul is paying thee any mind." },
+            { ch: "你的潛力就像你的存款，需要仔細找才找得到。", en: "Thy potential mimics thy wealth: hidden deep, requiring diligent search." },
+            { ch: "雖然你起步慢，但你放棄得快啊！", en: "Though thy beginning was sluggish, thy surrender was remarkably swift." },
+            { ch: "你不是不好，只是不適合生活在地球上。", en: "Tis not that thou art flawed, thou art merely ill-suited for this earth." },
+            { ch: "好好活著，畢竟每天都有新的笑話發生。", en: "Live on, for each dawning day bringeth fresh jests to pass." },
+            { ch: "你的智商可能還在發育，請耐心等待。", en: "Peradventure thy intellect is yet developing; pray wait with patience." },
+            { ch: "偶爾遲疑是正常的，一直遲疑就是腦袋不好。", en: "To falter briefly is human; to hesitate forever is simple folly." },
+            { ch: "你很善良，這通常是「沒長相、沒能力」的代名詞。", en: "Thy kindness is noted—a term oft used for lack of beauty and skill." },
+            { ch: "哭出來吧，這樣可以順便洗洗臉。", en: "Weep freely, if only to cleanse thy countenance thereby." },
+            { ch: "你獨一無二，就像工廠流水線上的瑕疵品。", en: "Thou art singular, like a flawed vessel from the artisan's line." },
+            { ch: "生活不會對你溫柔，但你可以對生活比中指。", en: "Life shall not be gentle, yet thou mayest show it thy defiant gesture." },
+            { ch: "你以為自己是主角，其實只是個道具。", en: "Thou deemest thyself the player, yet thou art but a stage prop." },
+            { ch: "樂觀一點，明天會更糟。", en: "Be of good cheer, for tomorrow shall bring worse tidings." },
+            { ch: "你的想法很新穎，新穎到不符合人類邏輯。", en: "Thy thoughts are novel—so much so that they defy human reason." },
+            { ch: "抱抱自己吧，反正也沒人想抱你。", en: "Embrace thine own self, for none other desires to hold thee." },
+
+            // 六、 萬能瞎扯類（純粹來亂的）
+            { ch: "多喝熱水，包治百病，包括沒錢。", en: "Drink warm waters; it cureth all ills, including lack of gold." },
+            { ch: "這是一句咒語，念完你就會忘記剛剛想問什麼。", en: "This is an incantation; once read, thy query shall vanish from memory." },
+            { ch: "答案就在隔壁頁，可惜這本書沒有頁碼。", en: "The truth rests on the adjacent page, yet this tome lacks numbers." },
+            { ch: "當你翻到這一頁，代表你已經浪費了五秒鐘。", en: "Flipping hither merely proveth thou hast squandered five seconds." },
+            { ch: "據可靠消息指出，你剛剛放了一個屁。", en: "According to reliable portents, thou hast just released a vapor." },
+            { ch: "請在心裡默數到十，然後裝作什麼都沒發生。", en: "Count silently to ten, then feign that naught hath occurred." },
+            { ch: "此題無解，請投幣解鎖下一頁。", en: "This riddle is unsolvable; pray drop a coin to unlock the next leaf." },
+            { ch: "由於天氣太熱，本答案拒絕回答。", en: "By reason of the excessive heat, this response declineth to answer." },
+            { ch: "你聽過安麗嗎？", en: "Hast thou ever heard of Amway?" },
+            { ch: "答案是：42。但你可能不知道問題是什麼。", en: "The answer is forty-two, though the question remaineth a mystery." },
+            { ch: "恭喜你，翻到了全書最沒用的一頁。", en: "Hail thee! Thou hast uncovered the most futile page in this book." },
+            { ch: "這件事的發展，取決於你今晚幾點睡覺。", en: "The unfolding of this deed dependeth on thy hour of slumber tonight." },
+            { ch: "請大喊一聲「我是豬」，問題就會迎刃而解。", en: "Cry out 'I am a swine,' and thy trouble shall dissolve instantly." },
+            { ch: "系統繁忙，請稍後再翻。", en: "The spheres are busy; pray consult the pages anon." },
+            { ch: "根據大數據分析，你現在應該去上廁所。", en: "By ancient calculations, tis high time thou didst visit the privy." },
+            { ch: "你的問題太有建設性了，超出了本印刷品的智商。", en: "Thy query is too profound; it mocketh the intellect of this paper." },
+            { ch: "閉上雙眼，深呼吸，然後把這本書放回書架。", en: "Close thine eyes, breathe deep, and restore this tome to its shelf." },
+            { ch: "這不是一句警世名言，這只是為了湊字數。", en: "This is no maxim of wisdom; tis merely penned to fill the void." },
+            { ch: "答案隱藏在你的體重數字裡。", en: "The ultimate verdict is safely hidden within the measure of thy weight." },
+            { ch: "看看你的左邊，那個人正在心裡笑你。", en: "Look to thy left; that soul is secretly mocking thee." },
+            { ch: "這種事，問就是不知道，知道也不告訴你。", en: "Inquire no more: I know not, and if I knew, I wouldst conceal it." },
+            { ch: "轉個圈吧，說不定會暈倒，就不用面對了。", en: "Spin in a circle; perchance thou shalt swoon and escape reality." },
+            { ch: "經過嚴密的計算，我建議你直接擺爛。", en: "After rigorous computation, I bid thee simply lie down and rot." },
+            { ch: "你的未來就像這行字一樣，有點模糊。", en: "Thy future resembles this very script—somewhat blurred." },
+            { ch: "翻到這頁的你，注定要再翻一頁。", en: "Thou who hast reached this page art destined to turn another." }
+        ];
+
+        const book = document.getElementById('book');
+        const cover = document.getElementById('cover');
+        const innerPages = document.getElementById('inner-pages');
+        const answerEl = document.getElementById('answer');
+        const leftContentEl = document.getElementById('left-content');
+        const hintEl = document.getElementById('hint');
+
+        let flipInterval = null;
+        let isFlipping = false;
+        let currentStatus = 'closed'; 
+        let pressTimer = null;
+
+        function startPress(e) {
+            e.preventDefault();
+            if (currentStatus === 'answered') {
+                resetToClosed();
+                return;
+            }
+            if (currentStatus !== 'closed' || isFlipping) return;
+
+            pressTimer = setTimeout(() => {
+                triggerFlipping();
+            }, 150);
+        }
+
+        function triggerFlipping() {
+            isFlipping = true;
+            currentStatus = 'flipping';
+            book.classList.remove('closed');
+            book.classList.add('opened');
+            cover.style.display = 'none';
+            innerPages.style.display = 'flex';
+            book.classList.add('flipping');
+            hintEl.innerText = "正在凝聚能量... 放開以獲得啟示";
+
+            flipInterval = setInterval(() => {
+                const randomPair = answersDatabase[Math.floor(Math.random() * answersDatabase.length)];
+                answerEl.innerText = randomPair.ch.slice(0, 4) + "...";
+                leftContentEl.innerText = randomPair.en.slice(0, 10) + "...";
+            }, 65);
+        }
+
+        function endPress(e) {
+            if (pressTimer) clearTimeout(pressTimer);
+            if (currentStatus !== 'flipping' || !isFlipping) return;
+
+            if (flipInterval) clearInterval(flipInterval);
+            book.classList.remove('flipping');
+            isFlipping = false;
+            currentStatus = 'answered';
+            hintEl.innerText = "答案已現。再度【輕點書本任意處】即可合上重置";
+
+            const finalPair = answersDatabase[Math.floor(Math.random() * answersDatabase.length)];
+            answerEl.innerText = finalPair.ch;
+            leftContentEl.innerText = finalPair.en;
+        }
+
+        function resetToClosed() {
+            currentStatus = 'closed';
+            isFlipping = false;
+            if (flipInterval) clearInterval(flipInterval);
+            
+            book.classList.remove('opened');
+            book.classList.add('closed');
+            
+            setTimeout(() => {
+                if (currentStatus === 'closed') {
+                    cover.style.display = 'flex';
+                    innerPages.style.display = 'none';
+                }
+            }, 120);
+
+            hintEl.innerText = "書本已重置。閉上眼默想新問題，重新【長按書本】...";
+            answerEl.innerText = "啟示";
+            leftContentEl.innerText = "Translation";
+        }
+
+        book.addEventListener('mousedown', startPress);
+        window.addEventListener('mouseup', endPress);
+
+        book.addEventListener('touchstart', function(e) {
+            if (e.cancelable) e.preventDefault();
+            startPress(e);
+        }, { passive: false });
+
+        book.addEventListener('touchend', function(e) {
+            if (e.cancelable) e.preventDefault();
+            endPress(e);
+        }, { passive: false });
+
+        book.addEventListener('touchcancel', function(e) {
+            endPress(e);
+        }, { passive: false });
+    </script>
+</body>
+</html>
